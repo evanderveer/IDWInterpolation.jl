@@ -3,7 +3,15 @@ uuid = "c7cc5ccf-f0cc-4b02-82bd-09efc92d65ec"
 authors = ["Ewout van der Veer <ewoutvanderveer@msn.com>"]
 version = "1.0.0-DEV"
 
+[deps]
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+NearestNeighbors = "b8a86587-4115-5ab1-83bc-aa920d37bbce"
+StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
+
 [compat]
+LinearAlgebra = "1.11.0"
+NearestNeighbors = "0.4.22"
+StaticArrays = "1.9.14"
 julia = "1.6.7"
 
 [extras]

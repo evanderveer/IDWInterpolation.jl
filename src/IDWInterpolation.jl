@@ -1,14 +1,89 @@
 module IDWInterpolation
 
-using NearestNeighbors: KDTree
+using NearestNeighbors: KDTree, knn
 using LinearAlgebra
 using StaticArrays
 
 include("kernels.jl")
-using .Kernel
+using .Kernels
 
-export interpolate, Kernel
+export interpolate, Kernels
 
+function interpolate(
+	points::AbstractMatrix{T}, 
+	values::AbstractVector{T}, 
+	resolution::Tuple, 
+	num_neighbors::Integer, 
+	kernel::Kernels.Kernel
+	) where T <: Real
+	if size(points, 2) != length(resolution)
+		error("number of resolution values provided must be equal to dimensionality of data")
+	end
+	tree = KDTree(permutedims(points, (2,1)))
+
+	mins = Tuple(minimum(points, dims=1))
+	maxs = Tuple(maximum(points, dims=1))
+	nodes = homogeneous_hypercube(resolution, mins, maxs)
+
+	idxs, dists = knn(tree, nodes, num_neighbors)
+
+	interpolated_matrix = Matrix{T}(undef, length(nodes), size(points, 2) + 1)
+
+	for i in axes(idxs, 1)
+		interpolated_matrix[i, 1:end-1] .= nodes[i]
+
+		weights = kernel.(dists[i])
+		weight_sum = sum(weights)
+		vals = values[idxs[i]]
+		interpolated_matrix[i, end] = sum(vals .* weights) / weight_sum
+	end
+
+	return interpolated_matrix
+end
+
+function interpolate(
+	points::AbstractMatrix{T}, 
+	values::AbstractVector{T}, 
+	resolution::Integer, 
+	num_neighbors::Integer, 
+	kernel::Kernels.Kernel
+	) where T <: Real
+	interpolate(
+		points, 
+		values, 
+		Tuple(resolution for _ in 1:size(points, 2)), 
+		num_neighbors, 
+		kernel
+		)
+end
+
+function interpolate(
+	matrix::AbstractMatrix{<:Real}, 
+	resolution::Int, 
+	num_neighbors::Integer, 
+	kernel::Kernels.Kernel
+	)
+
+	if size(matrix, 2) < 2
+		error("data matrix must have > 1 column")
+	end
+	points = matrix[:, 1:end-1]
+	values = vec(matrix[:, end])
+	interpolate(
+		points,
+		values, 
+		resolution, 
+		num_neighbors, 
+		kernel
+		)
+end
+
+
+"""
+
+Adapted from KernelInterpolation.jl
+Copyright (c) 2023-present Joshua Lampert <joshua.lampert@uni-hamburg.de> and contributors
+"""
 function homogeneous_hypercube(
 	n::NTuple{Dim, Int},
 	x_min::NTuple{Dim, RealT} = ntuple(_ -> 0.0, Dim),
@@ -26,58 +101,6 @@ function homogeneous_hypercube(
 		nodes[i] = node
 	end
 	return nodes
-end
-
-function make_matrix(
-	nodes, 
-	values, 
-	N
-	)
-
-	xs = unique(node[1] for node in nodes)
-	ys = unique(node[2] for node in nodes)
-
-	matrix = reshape(values, (N,N))
-	return(xs, ys, matrix)
-end
-
-function interpolate(
-	points, 
-	values, 
-	resolution, 
-	num_neighbors, 
-	shape_parameter
-	)
-	if size(points, 2) != length(resolution)
-		error("number of resolution values provided must be equal to dimensionality of data")
-	end
-	tree = KDTree(Float64.(points)')
-
-	mins = Tuple(minimum(points, dims=1))
-	maxs = Tuple(maximum(points, dims=1))
-	nodes = homogeneous_hypercube(resolution, mins, maxs)
-
-	idxs, dists = knn(tree, nodes, num_neighbors)
-
-	ivalues = Vector{Float64}(undef, length(nodes))
-	for i in 1:length(idxs)
-		weights = Kernel.gaussian.(dists[i], shape_parameter)
-		weight_sum = sum(weights)
-		vals = values[idxs[i]]
-		ivalues[i] = sum(vals .* weights) / weight_sum
-	end
-	
-	return (nodes, ivalues)
-end
-
-function interpolate(
-	points, 
-	values, 
-	resolution::Int, 
-	num_neighbors, 
-	shape_parameter
-	)
-	interpolate(points, values, [resolution for _ in 1:size(points, 1)], num_neighbors, shape_parameter)
 end
 
 end

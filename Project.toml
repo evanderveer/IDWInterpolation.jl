@@ -9,9 +9,6 @@ NearestNeighbors = "b8a86587-4115-5ab1-83bc-aa920d37bbce"
 StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 
 [compat]
-LinearAlgebra = "1.11.0"
-NearestNeighbors = "0.4.22"
-StaticArrays = "1.9.14"
 julia = "1.6.7"
 
 [extras]
